@@ -1,0 +1,416 @@
+'''
+Create some 1D timeseries, either with a given S/N or as estimate for a given
+TESS magnitude (using a very approximate noise model). For the purposes
+of thei
+'''
+
+from .imports import *
+
+class SubcadenceTimeseries():
+	"""
+	Implement a timeseries that keeps track of both the individual subcadences
+	and the actual cadences that have been binned together by a stacker.
+	"""
+
+	def __init__(self,  subcadencetime,
+						subcadenceflux,
+						subcadenceuncertainty,
+						subcadence=2.0,
+						cadence=120.0,
+				):
+		"""
+		Initialize the SubcadenceTimeseries object.
+
+		Parameters
+		----------
+		subcadencetime : 1D array
+			Subcadence light curve times, in *days*.
+		subcadenceflux : 1D array
+			Subcadence light curve flux values.
+		subcadenceuncertainty : float
+			Subcadence light curve flux uncertainties (currently accepts only a single value).
+		subcadence : float, optional
+			The duration of each subcadence point, in *seconds*.
+		cadence : float, optionl
+			The duration of actual cadences, to which the subcadences will be binned, in *seconds*.
+		"""
+
+		# this will be updated if its a real
+		self.model = False
+		self.cosmics = False
+		self.unbinned, self.binned = {}, {}
+
+
+		# how many subcadences will be stacked together?
+		self.subcadence = subcadence
+		self.cadence = cadence
+		if self.cadence % self.subcadence != 0:
+			raise ValueError("{} is not evenly divisible by {}".format(self.cadence, self.subcadence))
+		self.nsubcadences = np.int(self.cadence/self.subcadence)
+		self.ncadence = np.int(len(subcadencetime)/self.nsubcadences)
+
+		# store the subcadence timeseries
+		self.unbinned['time'] = subcadencetime
+		self.unbinned['flux'] = subcadenceflux
+		self.subcadenceuncertainty = subcadenceuncertainty
+		self.cadenceuncertainty = self.subcadenceuncertainty/np.sqrt(self.nsubcadences)
+
+
+	def meancollapse(self, x):
+		'''
+		Use a simple mean to collapse from subcadences to cadences.
+
+		Returns
+		-------
+
+		stackedmean : array
+			A stacked array, with the same dimensions as the total number of times.
+		'''
+
+		return np.mean(self.twod(x), 1)
+
+	def twod(self, oned):
+		'''
+		Convert the 1D subcadence arrays into a 2D array, for math.
+
+		Returns
+		-------
+
+		reshaped : array
+			Simply an array that's been trimmed and reshaped to make it easier to collapse.
+		'''
+		return oned[:self.ncadence*self.nsubcadences].reshape(self.shape)
+
+	@property
+	def shape(self):
+		'''
+		The shape of a 2D array, with ncadences x nsubcadences
+
+		Returns
+		-------
+
+		shape : array
+			The shape of a collapsable array.
+		'''
+		return (self.ncadence, self.nsubcadences)
+
+	def stack(self, strategy):
+		'''
+		Stack the subcadences into binned cadences, using a given stacking strategy.
+
+		Parameters
+		----------
+
+		strategy : a Strategy object
+			This will be used for collapsing the subcadences into binned cadences.
+
+		Returns
+		-------
+
+		binned : dict
+			The cadence-binned light curve, as a dictionary.
+		'''
+
+		# store the stacker that's being used
+		self.strategy = strategy
+
+		# calculate the binned times (the straight mean assumes we don't know which time was lost)
+		self.binned['time'] = self.meancollapse(self.unbinned['time'])
+
+		# apply the stacking filter
+		self.binned['flux'] = strategy(self)
+
+		# naive timeseries is binned using a simple mean
+		self.binned['unmitigated'] = self.meancollapse(self.unbinned['flux'])
+
+		if self.cosmics:
+			self.binned['cosmics'] = self.meancollapse(self.unbinned['cosmics'])
+
+		if self.model:
+			self.binned['model'] = self.meancollapse(self.unbinned['model'])
+
+		# calculate RMS of the binned light curves, with and without the cosmic ray filter
+		self.rms = {}
+		self.rms['unmitigated'] = np.std(self.binned['unmitigated'])
+		self.rms['achieved'] = np.std(self.binned['flux'])
+		self.rms['expected'] = self.subcadenceuncertainty/np.sqrt(self.nsubcadences)
+
+		return self.binned
+
+
+
+
+
+
+
+
+
+
+
+class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
+	def __init__(self,  tmin=-0.5, tmax=0.5,
+						model=np.ones_like,
+						subcadenceuncertainty=0.01,
+						subcadence=2.0,
+						cadence=120.0,
+						addcosmics=True,
+						cosmickw=dict(height=1.0, # what's the height of a single cosmic ray?
+									  probability=0.001), # what's the probability a subexposure is hit with a cosmic?
+				):
+		"""
+		Initialize the SubcadenceTimeseries where we know exactly the model that created it
+
+		Parameters
+		----------
+		tmin : float
+			The minimum time, in *days*.
+		tmax : float
+			The maximum time, in *days*.
+		model : function
+			A callable object, that takes time as an input and returns model fluxes.
+		subcadenceuncertainty : float
+			Subcadence light curve flux uncertainties (currently accepts only a single value).
+		subcadence : float, optional
+			The duration of each subcadence point, in *seconds*.
+		cadence : float, optionl
+			The duration of actual cadences, to which the subcadences will be binned, in *seconds*.
+		addcosmics : bool
+			Should we inject some cosmic rays into this timeseries?
+		cosmickw : dict
+			Keyword arguments that will be passed on to `self.addCosmics(**cosmic)` to define how cosmics should be added.
+		"""
+
+		# create a new grid of times
+		dt = subcadence/24.0/60.0/60.0
+		subcadencetime = np.arange(tmin, tmax, dt)
+
+		# calculate the model
+		m =  model(subcadencetime)
+
+		# generate a noise realization
+		subcadenceflux = np.random.normal(m, subcadenceuncertainty)
+
+		SubcadenceTimeseries.__init__(self, subcadencetime,
+											subcadenceflux,
+											subcadenceuncertainty,
+											subcadence,
+											cadence)
+		self.unbinned['model'] = m
+		self.unbinned['residuals'] = subcadenceflux - m
+
+		self.model = model
+		if addcosmics:
+			self.addCosmics(**cosmickw)
+
+	def addCosmics(self, 	height=1,
+							probability=0.001):
+		'''
+		Add simulated (single-subcadence) cosmic rays into the flux.
+
+		Parameters
+		----------
+		height : float
+			How big will a single cosmic ray hit appear at the binned cadence?
+				(this in units of the *per-cadence* RMS)
+		probability : float
+			How many cosmic ray hits per subcadence?
+		'''
+
+		# store the cosmic parameters
+		self.cosmics = dict(height=height, probability=probability)
+
+		# how big will the cosmic ray be in the cadences
+		diluted = height*self.cadenceuncertainty
+
+		# how big must it have therefore been in the subcadences?
+		undiluted = diluted*self.nsubcadences
+
+		# inject the cosmics into the flux timeseries
+		N = len(self.unbinned['flux'])
+		self.unbinned['cosmics'] =  undiluted*np.random.poisson(probability, N)
+		self.unbinned['flux'] += self.unbinned['cosmics']
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	def plot(self):
+		'''
+		*Very* simple plot of this timeseries.
+		'''
+		plt.figure('unbinned')
+		plt.cla()
+		try:
+			x = self.x % self.tm.planet.period.value*60*60*24.0
+		except AttributeError:
+			x = self.x
+		plt.plot(x.flatten(), self.flux.flatten(), linewidth=0, marker='.', alpha=0.3)
+		plt.show();
+
+	def __str__(self):
+		'''Summary of this object.'''
+		return "{nexposures} exposures, {nsubexposures} subexposures, cosmic rays {cosmicsamplitude:.2}X noise".format(**self.__dict__)
+
+
+"""
+class Timeseries1D(Timeseries):
+	'''1D timeseries, set by a S/N and an amplitude of cosmic rays.'''
+	def create(self, 	nexposures=1324,
+						nsubexposures=900,
+						subexposurecadence = 2.0,
+						snr=100,
+						amplitude=1.0,
+						probabilityofcosmic = 0.001,
+						):
+		'''
+		Initialize a 1D toy model timeseries, given a S/N and an amplitude and rate for cosmics.
+
+		The parameters for a toy model timeseries are:
+			nexposures=[how many binned exposures?]
+			nsubexposures=[how many subexposures within each exposure?]
+			subexposurecadence=[what's the cadence, in seconds, of the subexposures?]
+			snr=[what's the S/N of the timeseries?]
+			amplitude=[what's the amplitude of cosmic rays relative to binned exposure noise?],
+			probabilityofcosmic=[what's the probability of a cosmic ray hit in a given sub-exposure?],
+		'''
+
+		# what's the total number of binned exposures (e.g., how many half-hour FFIs?)
+		self.nexposures = nexposures
+
+		# what's the number of subexposures per exposure?
+		self.nsubexposures = nsubexposures
+
+		# what's the cadence (in real seconds) of those subexposures?
+		self.subexposurecadence = subexposurecadence
+
+		# what's the S/N of the subexposure timeseries? (the flux will default to 1)
+		self.snr = snr
+
+		# what's the noise of a subexposure
+		self.subexposurenoise = 1.0/self.snr
+
+		# is this the right way to set these up???
+		self.exposurenoise = self.subexposurenoise/np.sqrt(self.nsubexposures)
+
+		# the cosmic ray amplitude is relative to the binned exposure noise
+		self.cosmicsamplitude = amplitude
+
+		# what's the rate of cosmic rays per binned exposure?
+		self.cosmicspersubexposure = probabilityofcosmic
+		self.cosmicsperexposure = self.cosmicspersubexposure*self.nsubexposures #1.0 - (1.0 - probabilityofhit)**self.nsubexposures
+		self.exposurecadence = self.nsubexposures*self.subexposurecadence
+
+		# then create a simple timeseries
+		self.createSimple()
+
+	def createSimple(self, cosmics=True, noise=True):
+		'''Populate this timeseries with a simple toy model.'''
+
+		# create an array to store flux values
+		self.flux = np.ones(self.shape)
+
+		# add noise to the timeseries
+		if noise:
+			self.addNoise()
+
+		# add cosmic rays to the timeseries
+		if cosmics:
+			self.addCosmics()
+
+		# define an axis of cadence numbers along the timeseries
+		self.x = np.arange(0, self.nexposures, 1.0/self.nsubexposures).reshape(self.shape)
+
+		# note that this is a toy model timeseries
+		self.toy = True
+
+	def addNoise(self):
+		'''For toy model, include Gaussian noise.'''
+
+		# make a noiseless timeseries
+		self.noiseless = self.flux + 0.0
+
+		# add a noise realization to each subexposure
+		self.flux += np.random.normal(0,self.subexposurenoise,self.shape)
+
+	def addCosmics(self):
+		'''For toy model, include cosmic rays as random impulses with fixed amplitude.'''
+
+		# a flux array with amplitude of the cosmic ray amplitude times the number of cosmics per subexposure
+		self.cosmics = self.cosmicsamplitude*self.exposurenoise*self.nsubexposures*np.random.poisson(self.cosmicspersubexposure, self.shape)
+
+		# add these cosmics into the timeseries
+		self.flux += self.cosmics
+
+
+class Timeseries1DTESS(Timeseries1D):
+	'''1D cartoon timeseries, simulating a single TESS pixel.'''
+
+	def __init__(self, 	nexposures=1324,
+						nsubexposures=900,
+						probabilityofcosmic=0.001,
+						magnitude=10.0,
+						subexposurecadence = 2.0,
+						):
+		'''
+		Initialize a 1D toy model timeseries for a single TESS pixel timeseries,
+		given a magnitude for the star, and the photons/cosmic ray.
+
+		The parameters for a toy model timeseries are:
+			nexposures=[how many binned exposures?]
+			nsubexposures=[how many subexposures within each exposure?]
+			probabilityofcosmic=[what's the probability of a cosmic ray hit in a given sub-exposure?],
+			magnitude=[the brightness of the star sets the snr of the timeseries (and the amplitude)]
+			)
+		'''
+
+
+		# what's the TESS magnitude of the star?
+		self.magnitude = magnitude
+
+		# what fraction of the stellar light is contained in that single pixel?
+		self.containedflux = 0.3
+
+		# how many stellar photons land on this pixel (per subexposure)?
+		self.photonsfromstar = 1.7e6*subexposurecadence*73.0*10**(-0.4*self.magnitude)*self.containedflux
+
+		# what's the noise from the sky, and from readout?
+		skynoise = 10.0
+		readoutnoise = 10.0
+
+		# total number of stellar photons on the pixel in an exposure (in photoelectrons)
+		signal = nsubexposures*self.photonsfromstar
+
+		# calculate the noise (in photoelectrons)
+		noise = np.sqrt(nsubexposures*(readoutnoise**2 + skynoise**2 + self.photonsfromstar))
+		snr = signal/noise
+
+		# calculate the cosmic ray impact, fractionally, compared to the binned exposure
+		photonspercosmic=1000.0
+
+		# this is assuming all cosmic rays are the same in their amplitude
+		amplitude = photonspercosmic/noise
+
+		Timeseries1D.__init__(self, nexposures=nexposures,
+									nsubexposures=nsubexposures,
+									subexposurecadence=subexposurecadence,
+									snr=snr,
+									amplitude=amplitude,
+									probabilityofcosmic=probabilityofcosmic)
+"""
