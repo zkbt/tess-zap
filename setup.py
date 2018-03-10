@@ -14,7 +14,7 @@ from setuptools import setup, find_packages
 if "release" in sys.argv[-1]:
     os.system("python setup.py sdist")
     os.system("twine upload dist/*")
-    os.system("rm -rf dist/lightkurve*")
+    os.system("rm -rf dist/tesszap*")
     sys.exit()
 
 
@@ -29,19 +29,19 @@ if sys.version_info[0] < 3:
     import __builtin__ as builtins
 else:
     import builtins
-builtins.__ZAPCOSMICS_SETUP__ = True
-import zapcosmics
-version = zapcosmics.__version__
+builtins.__TESSZAPSETUP__ = True
+import tesszap
+version = tesszap.__version__
 
-setup(name = "zapcosmics",
+setup(name = "tesszap",
     version = version,
     description = "Simple tool to mitigate cosmic rays from astronomical timeseries.",
     long_description = readme(),
     author = "Zachory K. Berta-Thompson",
     author_email = "zach.bertathompson@colorado.edu",
-    url = "https://github.com/zkbt/zapcosmics",
+    url = "https://github.com/zkbt/tess-zap",
     packages = find_packages(),
-    package_data = {'zapcosmics':[]},
+    package_data = {'tesszap':[]},
     include_package_data=False,
     scripts = [],
     classifiers=[

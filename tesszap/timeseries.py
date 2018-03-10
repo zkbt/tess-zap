@@ -52,6 +52,8 @@ class SubcadenceTimeseries():
 		# store the subcadence timeseries
 		self.unbinned['time'] = subcadencetime
 		self.unbinned['flux'] = subcadenceflux
+		self.unbinned['unmitigated'] = self.unbinned['flux']
+
 		self.subcadenceuncertainty = subcadenceuncertainty
 		self.cadenceuncertainty = self.subcadenceuncertainty/np.sqrt(self.nsubcadences)
 
@@ -121,10 +123,11 @@ class SubcadenceTimeseries():
 		self.binned['flux'] = strategy(self)
 
 		# naive timeseries is binned using a simple mean
-		self.binned['unmitigated'] = self.meancollapse(self.unbinned['flux'])
+		self.binned['unmitigated'] = self.meancollapse(self.unbinned['unmitigated'])
 
 		if self.cosmics:
 			self.binned['cosmics'] = self.meancollapse(self.unbinned['cosmics'])
+			self.binned['nocosmics'] = self.binned['unmitigated'] - self.binned['cosmics']
 
 		if self.model:
 			self.binned['model'] = self.meancollapse(self.unbinned['model'])
@@ -226,9 +229,10 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 		undiluted = diluted*self.nsubcadences
 
 		# inject the cosmics into the flux timeseries
-		N = len(self.unbinned['flux'])
+		N = len(self.unbinned['unmitigated'])
 		self.unbinned['cosmics'] =  undiluted*np.random.poisson(probability, N)
-		self.unbinned['flux'] += self.unbinned['cosmics']
+		self.unbinned['nocosmics'] = self.unbinned['unmitigated']
+		self.unbinned['unmitigated'] =  self.unbinned['nocosmics'] + self.unbinned['cosmics']
 
 
 
@@ -236,37 +240,103 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	def plot(self):
-		'''
-		*Very* simple plot of this timeseries.
-		'''
-		plt.figure('unbinned')
-		plt.cla()
-		try:
-			x = self.x % self.tm.planet.period.value*60*60*24.0
-		except AttributeError:
-			x = self.x
-		plt.plot(x.flatten(), self.flux.flatten(), linewidth=0, marker='.', alpha=0.3)
-		plt.show();
 
 	def __str__(self):
 		'''Summary of this object.'''
 		return "{nexposures} exposures, {nsubexposures} subexposures, cosmic rays {cosmicsamplitude:.2}X noise".format(**self.__dict__)
+
+
+
+
+	def plot(self, xlim=[None, None], unbinned=False):
+
+		# set up the plots
+		self.figure = plt.figure('{}'.format(self.model), figsize=(8, 6), dpi=100)
+		gs = plt.matplotlib.gridspec.GridSpec(2, 2,
+					width_ratios=[1.0, 0.2], height_ratios=[1.0, 0.4],
+					wspace=0.0, hspace=0.02)
+		self.ax = {}
+		self.ax['flux'] = plt.subplot(gs[0,0])
+		plt.setp(self.ax['flux'].get_xticklabels(), visible=False)
+		plt.ylabel('Relative Flux')
+		self.ax['residual'] = plt.subplot(gs[1,0], sharex=self.ax['flux'])
+		plt.xlabel('Time (days)')
+		plt.ylabel('Residuals\n(in $\sigma$)')
+		self.ax['histogramresidual'] = plt.subplot(gs[1,1], sharey=self.ax['residual'])
+		#plt.setp(self.ax['histogramresidual'].get_yticklabels(), visible=False)
+		self.ax['histogramresidual'].axis('off')
+
+		# define a helper function
+
+		def plotTimeseries(x, y, **kw):
+			'''
+			Helper to plot a timeseries.
+			'''
+
+			if xlim[0]:
+				ok = (x >= np.min(xlim)) * (x <= np.max(xlim))
+			else:
+				ok = np.ones_like(y).astype(np.bool)
+			plt.plot(x[ok], y[ok], **kw)
+
+
+		binnedkw = dict(marker='o', markersize=5, alpha=0.5, linewidth=1, markeredgecolor='none')
+		unbinnedkw = dict(marker='.', markersize=0.1, alpha=0.3, linewidth=0, markeredgecolor='none')
+		histogramkw = dict(linewidth=2, alpha=0.5)
+		typekw = {	'flux':dict(color='mediumvioletred', zorder=3),
+					'nocosmics':dict(color='darkorange', zorder=1),
+					'unmitigated':dict(color='royalblue', zorder=2)}
+		modelkw = dict(linewidth=2, color='gray', zorder=-1)
+
+
+		# plot the actual time series
+		plt.sca(self.ax['flux'])
+		for k in typekw.keys():
+			if unbinned:
+				plotTimeseries(self.unbinned['time'], self.unbinned[k], **typekw[k], **unbinnedkw)
+			plotTimeseries(self.binned['time'], self.binned[k], **typekw[k], **binnedkw)
+		plt.plot(self.unbinned['time'], self.unbinned['model'], **modelkw)
+
+		# set the scale for plotting the residuals
+		scale = self.cadenceuncertainty
+		binwidth = np.minimum(100*5.0/self.ncadence, 0.5)
+
+		# plot the residuals
+		plt.sca(self.ax['residual'])
+		for k in typekw.keys():
+			if unbinned:
+				plotTimeseries(self.unbinned['time'], (self.unbinned[k] - self.unbinned['model'])/scale, **typekw[k], **unbinnedkw)
+			plotTimeseries(self.binned['time'], (self.binned[k] - self.binned['model'])/scale, **typekw[k], **binnedkw)
+		plt.axhline(0, xmin=np.min(self.unbinned['time']), xmax=np.max(self.unbinned['time']), **modelkw)
+		plt.xlim(*xlim)
+
+		# plot th histograms
+		plt.sca(self.ax['histogramresidual'])
+
+		def plotHistogram(y, **kwargs):
+			'''
+			Helper function to plot a histogram,
+			rotated clockwise by 90 degrees,
+			to represent a projection of a timeseries plot.
+			'''
+
+			# create a histogram of the lightcurve values
+			b = np.arange(np.min(y) - binwidth, np.max(y) + binwidth, binwidth)
+			yhist, edges = np.histogram(y, bins=b, density=True)
+
+			# define the "x"-axis at the centers of the histogram bins
+			xhist = (edges[1:] + edges[0:-1])/2.0
+
+			# plot in the histogram panel
+			plt.plot(yhist, xhist, **kwargs)
+			#plt.xlim(3, np.max(yhist)*1.5)
+
+		for k in typekw.keys():
+			plotHistogram((self.binned[k] - self.binned['model'])/scale, **typekw[k], **histogramkw)
+		y = np.linspace(*plt.ylim(), num=200)
+		plt.plot(np.exp(-0.5*y**2)/np.sqrt(2*np.pi), y, **modelkw)
+		plt.xscale('log')
+		plt.xlim(2.0/len(self.binned['flux']), None )
 
 
 """
