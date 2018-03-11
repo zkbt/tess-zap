@@ -77,38 +77,6 @@
         ax.plot(x[ok], y[ok], **kwargs)
         ax.set_xlim(0, self.plotting['toplot'])
 
-    def plothistogram(self, y,binwidth=0.1, ax=None, fixed=False, **kwargs):
-        '''Plot a histogram, rotated clockwise by 90 degrees, to represent a projection of a timeseries plot.'''
-
-        # set the binwidth
-        self.binwidth = binwidth
-
-        # create a histogram of the lightcurve values
-        yhist, edges = np.histogram(y, bins=np.arange(np.min(y)-self.binwidth, np.max(y)+self.binwidth, self.binwidth), density=True)
-
-        # define the "x"-axis at the centers of the histogram bins
-        xhist = (edges[1:] + edges[0:-1])/2.0
-
-        # plot in the histogram panel
-        if ax is None:
-          ax = self.ax['histbinned']
-        ax.plot(yhist, xhist, **kwargs)
-
-        ax.set_xscale('log')
-        ax.set_xlim(3, np.max(yhist)*1.5)
-
-    def plotimage(self, ax=plt.gca()):
-        '''Display the image from which this light curve came, and indicate which pixel.'''
-
-        # make sure the light curve was actually derived from an image cube
-        assert(self.timeseries.toy == False)
-
-        # pull out the median image for plotting
-        image = self.timeseries.cube.median()
-
-        ax.imshow(np.log(np.transpose(image)), interpolation='nearest', cmap='gray_r')
-        ax.plot(self.timeseries.pixel[0], self.timeseries.pixel[1],marker='o',markerfacecolor='None',markersize=10, alpha=0.5, markeredgecolor='gray')
-        ax.text(self.timeseries.pixel[0], self.timeseries.pixel[1], '     {0}'.format(self.timeseries.pixel), horizontalalignment='left', verticalalignment='center', color='gray', alpha=0.5, weight='bold', size=4)
 
     def test(self, t, remake=False, niterations=20):
         '''Test Strategy over a range of input cosmic ray amplitudes (using toy model light curves).'''

@@ -6,7 +6,7 @@ of thei
 
 from .imports import *
 
-class SubcadenceTimeseries():
+class TimeseriesWithoutModel():
 	"""
 	Implement a timeseries that keeps track of both the individual subcadences
 	and the actual cadences that have been binned together by a stacker.
@@ -19,7 +19,7 @@ class SubcadenceTimeseries():
 						cadence=120.0,
 				):
 		"""
-		Initialize the SubcadenceTimeseries object.
+		Initialize the TimeseriesWithoutModel object.
 
 		Parameters
 		----------
@@ -150,7 +150,7 @@ class SubcadenceTimeseries():
 
 
 
-class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
+class Timeseries(TimeseriesWithoutModel):
 	def __init__(self,  tmin=-0.5, tmax=0.5,
 						model=np.ones_like,
 						subcadenceuncertainty=0.01,
@@ -161,7 +161,7 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 									  probability=0.001), # what's the probability a subexposure is hit with a cosmic?
 				):
 		"""
-		Initialize the SubcadenceTimeseries where we know exactly the model that created it
+		Initialize the TimeseriesWithoutModel where we know exactly the model that created it
 
 		Parameters
 		----------
@@ -184,8 +184,13 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 		"""
 
 		# create a new grid of times
-		dt = subcadence/24.0/60.0/60.0
-		subcadencetime = np.arange(tmin, tmax, dt)
+		dtcadence = cadence/24.0/60.0/60.0
+		dtsubcadence = subcadence/24.0/60.0/60.0
+
+		cadencetime = np.arange(tmin, tmax, dtcadence)
+		nsubcadences = np.int(cadence/subcadence)
+		asinglesubcadenceset = np.arange(-dtcadence/2.0, dtcadence/2.0, dtsubcadence)
+		subcadencetime = (cadencetime[:, np.newaxis] + asinglesubcadenceset[np.newaxis, :]).flatten()
 
 		# calculate the model
 		m =  model(subcadencetime)
@@ -193,7 +198,7 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 		# generate a noise realization
 		subcadenceflux = np.random.normal(m, subcadenceuncertainty)
 
-		SubcadenceTimeseries.__init__(self, subcadencetime,
+		TimeseriesWithoutModel.__init__(self, subcadencetime,
 											subcadenceflux,
 											subcadenceuncertainty,
 											subcadence,
@@ -246,8 +251,6 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 		return "{nexposures} exposures, {nsubexposures} subexposures, cosmic rays {cosmicsamplitude:.2}X noise".format(**self.__dict__)
 
 
-
-
 	def plot(self, xlim=[None, None], unbinned=False):
 
 		# set up the plots
@@ -263,23 +266,9 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 		plt.xlabel('Time (days)')
 		plt.ylabel('Residuals\n(in $\sigma$)')
 		self.ax['histogramresidual'] = plt.subplot(gs[1,1], sharey=self.ax['residual'])
-		#plt.setp(self.ax['histogramresidual'].get_yticklabels(), visible=False)
 		self.ax['histogramresidual'].axis('off')
 
-		# define a helper function
-
-		def plotTimeseries(x, y, **kw):
-			'''
-			Helper to plot a timeseries.
-			'''
-
-			if xlim[0]:
-				ok = (x >= np.min(xlim)) * (x <= np.max(xlim))
-			else:
-				ok = np.ones_like(y).astype(np.bool)
-			plt.plot(x[ok], y[ok], **kw)
-
-
+		# set up all of the plotting parameters
 		binnedkw = dict(marker='o', markersize=5, alpha=0.5, linewidth=1, markeredgecolor='none')
 		unbinnedkw = dict(marker='.', markersize=0.1, alpha=0.3, linewidth=0, markeredgecolor='none')
 		histogramkw = dict(linewidth=2, alpha=0.5)
@@ -288,8 +277,15 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 					'unmitigated':dict(color='royalblue', zorder=2)}
 		modelkw = dict(linewidth=2, color='gray', zorder=-1)
 
+		def plotTimeseries(x, y, **kw):
+			'''Helper to plot a timeseries.'''
+			if xlim[0]:
+				ok = (x >= np.min(xlim)) * (x <= np.max(xlim))
+			else:
+				ok = np.ones_like(y).astype(np.bool)
+			plt.plot(x[ok], y[ok], **kw)
 
-		# plot the actual time series
+		### plot the actual time series
 		plt.sca(self.ax['flux'])
 		for k in typekw.keys():
 			if unbinned:
@@ -301,7 +297,7 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 		scale = self.cadenceuncertainty
 		binwidth = np.minimum(100*5.0/self.ncadence, 0.5)
 
-		# plot the residuals
+		### plot the residuals
 		plt.sca(self.ax['residual'])
 		for k in typekw.keys():
 			if unbinned:
@@ -310,9 +306,8 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 		plt.axhline(0, xmin=np.min(self.unbinned['time']), xmax=np.max(self.unbinned['time']), **modelkw)
 		plt.xlim(*xlim)
 
-		# plot th histograms
+		# plot the histograms
 		plt.sca(self.ax['histogramresidual'])
-
 		def plotHistogram(y, **kwargs):
 			'''
 			Helper function to plot a histogram,
@@ -330,14 +325,42 @@ class OmniscientSubcadenceTimeseries(SubcadenceTimeseries):
 			# plot in the histogram panel
 			plt.plot(yhist, xhist, **kwargs)
 			#plt.xlim(3, np.max(yhist)*1.5)
-
 		for k in typekw.keys():
 			plotHistogram((self.binned[k] - self.binned['model'])/scale, **typekw[k], **histogramkw)
+		# overplot a model histogram on top of that
 		y = np.linspace(*plt.ylim(), num=200)
 		plt.plot(np.exp(-0.5*y**2)/np.sqrt(2*np.pi), y, **modelkw)
 		plt.xscale('log')
-		plt.xlim(2.0/len(self.binned['flux']), None )
+		plt.xlim(2.0/len(self.binned['flux']), None)
 
+		# fiddle with the ylimits of the plots, depending on whether looking at binned or unbinned timeseries
+		nsigma = 5
+		#if unbinned:
+		#	plt.ylim(None,  None)
+		#else:
+		#	plt.ylim(-nsigma, nsigma)
+
+
+	def movie(self, window=1.0, fps=20, bitrate=1800*10, filename='test.mp4'):
+
+		# make a plot with no xlim
+		self.plot(xlim=[None, None])
+		metadata = dict(title=None, artist=None)
+		self.writer = ani.FFMpegWriter(fps=fps, metadata=metadata, bitrate=bitrate)
+		with self.writer.saving(self.figure, filename, self.figure.get_dpi()):
+
+			overlap = 0.03
+			xlim = plt.xlim()
+			span = xlim[1] - xlim[0]
+			xmin, xmax = np.min(self.unbinned['time']), np.max(self.unbinned['time'])
+			N = (xmax-xmin)/(overlap*span)
+			leftedges = np.linspace(xmin, xmax-span, N)
+
+			# loop over spans
+			for left in tqdm(leftedges):
+				xlim = left, left+span
+				self.ax['residual'].set_xlim(*xlim)
+				self.writer.grab_frame()
 
 """
 class Timeseries1D(Timeseries):

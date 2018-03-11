@@ -129,7 +129,7 @@ class lowest(Strategy):
         sum = np.sum(reshapen, 2)
         max = np.max(reshapen, 2)
         corrected = np.mean((sum - max)/self.m,1)
-        return corrected/ np.mean(corrected)    # this isn't correct -- it should be an empirical correction factor!
+        return corrected#/ np.mean(corrected)    # this isn't correct -- it should be an empirical correction factor!
 
 class central(Strategy):
     '''

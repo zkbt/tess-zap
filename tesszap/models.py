@@ -27,6 +27,9 @@ class Flare(Model):
         m[afterstart] += self.amplitude*np.exp(-(t[afterstart]-self.start)/self.decay)
         return m
 
+    def __repr__(arg):
+        return '<flare with {:.2}*exp(-t/{:.2})>'.format(self.ampltiude, self.decay)
+
 class ManyFlares(Model):
     '''
     Create lots of flares, all stacked together.
@@ -48,7 +51,7 @@ class ManyFlares(Model):
         return m
 
     def __repr__(self):
-        return '<{} flares>'.format(self.N)
+        return '<{} random flares>'.format(self.N)
 
 class Transit(Model):
     '''
@@ -107,7 +110,5 @@ if __name__ == '__main__':
 
     for model in [t_deep, t_shallow, few, many]:
         model.plot()
-
-
 
     plt.legend(bbox_to_anchor=(1,1), loc='upper left', frameon=False)
