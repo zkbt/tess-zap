@@ -1,4 +1,4 @@
-__version__ = '0.0'
+__version__ = '0.0.1'
 
 # specify whether we're calling this from within setup.py
 try:

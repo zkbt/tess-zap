@@ -17,12 +17,6 @@ if "release" in sys.argv[-1]:
     os.system("rm -rf dist/tesszap*")
     sys.exit()
 
-
-# return the README as a string
-def readme():
-    with open('README.md') as f:
-        return f.read()
-
 # a little kludge to be able to get the version number from the package
 import sys
 if sys.version_info[0] < 3:
@@ -35,8 +29,8 @@ version = tesszap.__version__
 
 setup(name = "tess-zap",
     version = version,
-    description = "Simple tool to mitigate cosmic rays from astronomical pixel timeseries.",
-    long_description = readme(),
+    description = "Tool to simulate the effects of the TESS cosmic ray mitigation on light curves.",
+    long_description = "For usage, installation, and discussion, please visit https://github.com/zkbt/tess-zap",
     author = "Zach Berta-Thompson",
     author_email = "zach.bertathompson@colorado.edu",
     url = "https://github.com/zkbt/tess-zap",
