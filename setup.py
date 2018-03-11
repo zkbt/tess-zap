@@ -13,7 +13,7 @@ from setuptools import setup, find_packages
 # Prepare and send a new release to PyPI
 if "release" in sys.argv[-1]:
     os.system("python setup.py sdist")
-    os.system("twine upload dist/*")
+    os.system("twine upload --repository-url https://test.pypi.org/legacy/ dist/*")
     os.system("rm -rf dist/tesszap*")
     sys.exit()
 
@@ -33,11 +33,11 @@ builtins.__TESSZAPSETUP__ = True
 import tesszap
 version = tesszap.__version__
 
-setup(name = "tesszap",
+setup(name = "tess-zap",
     version = version,
-    description = "Simple tool to mitigate cosmic rays from astronomical timeseries.",
+    description = "Simple tool to mitigate cosmic rays from astronomical pixel timeseries.",
     long_description = readme(),
-    author = "Zachory K. Berta-Thompson",
+    author = "Zach Berta-Thompson",
     author_email = "zach.bertathompson@colorado.edu",
     url = "https://github.com/zkbt/tess-zap",
     packages = find_packages(),
