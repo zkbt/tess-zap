@@ -54,7 +54,8 @@ for k in lc.rms.keys():
 lc.plot()
 ```
 
-The output should look something like this:
+The output should look something like the following plot, which includes the light curves (top), the residuals from the model (bottom), and rotated histograms of the residuals (bottom right) on a log-scale.
+
 <img src='images/wibblewobbleexample.png'>
 
 Happy zapping!
