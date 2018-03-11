@@ -4,20 +4,20 @@ The [Transiting Exoplanet Survey Satellite (TESS)](https://heasarc.gsfc.nasa.gov
 
 <img src='images/cartoon.png'>
 
-This pixel-level truncated mean has the potential to distort astrophysical signals that show very strong variations on very short timescales. The `tesszap` package contains code to simulate the effect of this algorithm on model light curves, so the cosmic ray mitigation process can be included (approximately) in your generative models. It zaps cosmic rays pretty well, but you might want to make sure it doesn't zap your particular astrophysical signal of interest.
+This pixel-level truncated mean has the potential to distort astrophysical signals that show very strong variations on very short timescales. The `tess-zap` package contains code to simulate the effect of this algorithm on model light curves, so the cosmic ray mitigation process can be included (approximately) in your generative models. It zaps cosmic rays pretty well, but you might want to make sure it doesn't zap your particular astrophysical signal of interest.
 
 ### Installation
 
 To install, this simplest way is probably simply to install it directly via `pip` from any UNIX prompt:
 ```
-pip install git+https://github.com/zkbt/tesszap
+pip install git+https://github.com/zkbt/tess-zap
 ```
 
-If you want to be able to modify the code yourself, please also feel free to fork/clone this repository onto your own computer. You can then change into the `tesszap/` directory and run
+If you want to be able to modify the code yourself, please also feel free to fork/clone this repository onto your own computer. You can then change into the `tess-zap/` directory and run
 ```
 pip install -e .
 ```
-which will link the intalled version of the `tesszap` package to your local repository. Changes you make to the code in the repository should be reflected in the version of `tesszap` that Python sees.
+which will link the intalled version of the `tess-zap` package to your local repository. Changes you make to the code in the repository should be reflected in the version of `tesszap` that Python sees.
 
 ### Usage
 
