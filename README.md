@@ -27,7 +27,7 @@ Here's a basic example of how you can use `tesszap` to predict the effect of the
 + make a plot that compares the light curve in which cosmics have been zapped (pink), the light curve if no cosmic-ray mitigation had been applied (blue), and the light curve if there hadn't been any cosmic rays in the first place (orange).
 
 
-```
+```python
 from tesszap.tess import StampCadenceTimeseries
 from tesszap.strategies import Central
 import numpy as np
