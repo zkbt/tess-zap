@@ -13,7 +13,9 @@ from setuptools import setup, find_packages
 # Prepare and send a new release to PyPI
 if "release" in sys.argv[-1]:
     os.system("python setup.py sdist")
-    os.system("twine upload --repository-url https://test.pypi.org/legacy/ dist/*")
+    # uncomment this to test out on test.pypi.com/project/tess-zap
+    # os.system("twine upload --repository-url https://test.pypi.org/legacy/ dist/*")
+    os.system("twine upload dist/*")
     os.system("rm -rf dist/tesszap*")
     sys.exit()
 
