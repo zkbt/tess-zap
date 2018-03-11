@@ -35,8 +35,8 @@ def noise(tmag=10.0, exptime=1800.0, teff=5000.0,
           elon=0.0, elat=30.0, glon=None, glat=None, ra=None, dec=None,
           subexptime=2.0, npix_aper=4, frac_aper=0.76, e_pix_ro=10.0,
           effective_area=73.0, pix_scale=21.1, sys_limit=60.0,
-          verbose=False):
-    """Calculate noise, given input Ic magnitude, returing the fractional rms (= 1/snr)
+          verbose=False, return_photons=False):
+    """Calculate noise, given input TESS magnitude, returing the fractional rms (= 1/snr)
 
         Mandatory inputs
 
@@ -144,7 +144,10 @@ def noise(tmag=10.0, exptime=1800.0, teff=5000.0,
         print('noise_sys  [ppm] = ', noise_sys*1e6)
         print('noise      [ppm] = ', noise*1e6)
 
-    return noise
+    if return_photons:
+        return noise, e_star
+    else:
+        return noise
 
 
 def demo(span=27.4, period=12.345678, mean=17, amplitude=1.0):

@@ -131,11 +131,13 @@ class TimeseriesWithoutModel():
 
 		if self.model:
 			self.binned['model'] = self.meancollapse(self.unbinned['model'])
+		else:
+			self.binned['model'] = np.mean(self.binned['flux'])
 
 		# calculate RMS of the binned light curves, with and without the cosmic ray filter
 		self.rms = {}
-		self.rms['unmitigated'] = np.std(self.binned['unmitigated'])
-		self.rms['achieved'] = np.std(self.binned['flux'])
+		self.rms['unmitigated'] = np.std(self.binned['unmitigated'] - self.binned['model'])
+		self.rms['achieved'] = np.std(self.binned['flux'] - self.binned['model'])
 		self.rms['expected'] = self.subcadenceuncertainty/np.sqrt(self.nsubcadences)
 
 		return self.binned
@@ -293,6 +295,14 @@ class Timeseries(TimeseriesWithoutModel):
 			plotTimeseries(self.binned['time'], self.binned[k], **typekw[k], **binnedkw)
 		plt.plot(self.unbinned['time'], self.unbinned['model'], **modelkw)
 
+		# labels describing the simulated timeseries
+		cosmiclabel = "{:0.2f} cosmic rays per subexposure, at {:0.1f}X noise".format(
+			self.cosmics['probability']*self.cadence/self.subcadence, self.cosmics['height'])
+		plt.text(0, 0, cosmiclabel, transform=plt.gca().transAxes, color='gray', fontsize=4, horizontalalignment='left', alpha=0.7)
+		cadencelabel = "{cadence:.0f}s cadence, {subcadence:.0f}s subcadence".format(**self.__dict__)
+		plt.text(1, 0, cadencelabel, transform=plt.gca().transAxes, color='gray', fontsize=4, horizontalalignment='right', alpha=0.7)
+
+
 		# set the scale for plotting the residuals
 		scale = self.cadenceuncertainty
 		binwidth = np.minimum(100*5.0/self.ncadence, 0.5)
@@ -333,8 +343,32 @@ class Timeseries(TimeseriesWithoutModel):
 		plt.xscale('log')
 		plt.xlim(2.0/len(self.binned['flux']), None)
 
+
+		keys = ['expected',  'achieved', 'unmitigated' ]
+		kw = [typekw['nocosmics'], typekw['flux'], typekw['unmitigated']]
+		textkw = dict(transform=self.ax['histogramresidual'].transAxes,
+						horizontalalignment='center', alpha=0.7)
+
+		for i, k in enumerate(keys):
+			plt.text(0.5, 1.3 + i*0.4, k, fontsize=9, **kw[i], **textkw)
+			ratio = '{:.2f}'.format(self.rms[k]/self.rms['expected'])
+			plt.text(0.5, 1.3 + i*0.4 - 0.12, ratio, fontsize=11, **kw[i], **textkw)
+			actual = '({:.0f} ppm)'.format( 1e6*self.rms[k])
+			plt.text(0.5, 1.3 + i*0.4 - 0.2, actual, fontsize=8, **kw[i], **textkw)
+
+	'''
+	self.ax['histbinned'].text(np.exp(span*0.2 + left), y, "{:.2f}".format(self.timeseries.scale*self.unmititigated/self.timeseries.exposurenoise), fontsize=6, color=self.plotting['naive'], horizontalalignment='center', alpha=0.7)
+	self.ax['histbinned'].text(np.exp(span*0.5 + left), y, "{:.2f}".format(self.timeseries.scale*self.achieved/self.timeseries.exposurenoise), fontsize=6, color=self.plotting['flux'], horizontalalignment='center', alpha=0.7)
+	self.ax['histbinned'].text(np.exp(span*0.78 + left), y, "{:.2f}".format(self.timeseries.scale), fontsize=6, color=self.plotting['nocosmics'], horizontalalignment='center', alpha=0.7)
+	self.ax['histbinned'].text(np.exp(span*0.2 + left), ylevel - ywidth*1.1, 'unmitigated', fontsize=4, color=self.plotting['naive'], horizontalalignment='center', alpha=0.7)
+	self.ax['histbinned'].text(np.exp(span*0.5 + left), ylevel - ywidth*1.1, 'achieved', fontsize=4, color=self.plotting['flux'], horizontalalignment='center', alpha=0.7)
+	self.ax['histbinned'].text(np.exp(span*0.8 + left), ylevel - ywidth*1.1, 'perfect', fontsize=4, color=self.plotting['nocosmics'], horizontalalignment='center', alpha=0.7)
+	'''
+
+
+
 		# fiddle with the ylimits of the plots, depending on whether looking at binned or unbinned timeseries
-		nsigma = 5
+		#nsigma = 5
 		#if unbinned:
 		#	plt.ylim(None,  None)
 		#else:

@@ -30,8 +30,32 @@ class Strategy():
         raise Exception("Uh-oh! It seems no filtering function was defined!")
 
 
+class Central(Strategy):
+    '''
+    Binning Strategy =
+            break into subsets, reject the highest and lowest points from each
+            and take the mean of the rest, sum these truncated means.
+    '''
+    def __init__(self, n=None):
+        Strategy.__init__(self, n)
+        m = None
+        if m is None:
+          m = self.n - 2
+        self.m = m
+        self.name = "Central {m} out of {n}".format(m = self.m, n=self.n)
 
-class mean(Strategy):
+    def __call__(self, timeseries):
+        assert(self.m == self.n-2)
+        shape = timeseries.shape
+        reshapen = timeseries.unbinned['flux'].reshape(shape[0], shape[1]//self.n, self.n)
+        sum = np.sum(reshapen, 2)
+        max = np.max(reshapen, 2)
+        min = np.min(reshapen, 2)
+        corrected = np.mean((sum - max - min)/self.m,1)
+        return corrected #- np.mean(corrected)
+
+
+class Mean(Strategy):
     '''
     Binning Strategy =
         the simplest, taking the straight sum of all the subexposures.'''
@@ -43,7 +67,7 @@ class mean(Strategy):
         return np.mean(timeseries.unbinned['flux'], 1)
 
 
-class median(Strategy):
+class Median(Strategy):
     '''
     Binning Strategy =
         break into non-overlapping subsets, take median of each, sum all of
@@ -59,7 +83,7 @@ class median(Strategy):
         partial = np.median(reshapen, 2)
         return np.mean(partial, 1)
 
-class shiftedmedian(Strategy):
+class ShiftedMedian(Strategy):
     '''
     Binning Strategy =
             break into overlapping subsets, take median of each, sum all of
@@ -80,7 +104,7 @@ class shiftedmedian(Strategy):
         return np.mean(sumofmedians/self.n, 1)
 
 
-class sullivan(Strategy):
+class Sullivan(Strategy):
     '''
     Binning Strategy =
         idea Peter and I played around with; didn't work particularly well.
@@ -108,7 +132,7 @@ class sullivan(Strategy):
         partial = np.sum(mask*values,0)/np.sum(mask, 0)
         return np.mean(partial, 1)
 
-class lowest(Strategy):
+class Lowest(Strategy):
     '''
     Binning Strategy =
             break into subsets, reject the highest point from each and take the
@@ -131,31 +155,7 @@ class lowest(Strategy):
         corrected = np.mean((sum - max)/self.m,1)
         return corrected#/ np.mean(corrected)    # this isn't correct -- it should be an empirical correction factor!
 
-class central(Strategy):
-    '''
-    Binning Strategy =
-            break into subsets, reject the highest and lowest points from each
-            and take the mean of the rest, sum these truncated means.
-    '''
-    def __init__(self, n=None):
-        Strategy.__init__(self, n)
-        m = None
-        if m is None:
-          m = self.n - 2
-        self.m = m
-        self.name = "Central {m} out of {n}".format(m = self.m, n=self.n)
-
-    def __call__(self, timeseries):
-        assert(self.m == self.n-2)
-        shape = timeseries.shape
-        reshapen = timeseries.unbinned['flux'].reshape(shape[0], shape[1]//self.n, self.n)
-        sum = np.sum(reshapen, 2)
-        max = np.max(reshapen, 2)
-        min = np.min(reshapen, 2)
-        corrected = np.mean((sum - max - min)/self.m,1)
-        return corrected #- np.mean(corrected)
-
-class outlierwithdecay(Strategy):
+class OutlierWithDecay(Strategy):
     '''
     Binning Strategy =
             break into subsets, estimate standard deviation with weighted mean
