@@ -362,6 +362,8 @@ class Timeseries(TimeseriesWithoutModel):
 				self.ax['residual'].set_xlim(*xlim)
 				self.writer.grab_frame()
 
+		plt.close()
+
 """
 class Timeseries1D(Timeseries):
 	'''1D timeseries, set by a S/N and an amplitude of cosmic rays.'''
