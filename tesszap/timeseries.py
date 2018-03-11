@@ -291,8 +291,10 @@ class Timeseries(TimeseriesWithoutModel):
 		plt.sca(self.ax['flux'])
 		for k in typekw.keys():
 			if unbinned:
-				plotTimeseries(self.unbinned['time'], self.unbinned[k], **typekw[k], **unbinnedkw)
-			plotTimeseries(self.binned['time'], self.binned[k], **typekw[k], **binnedkw)
+				unbinnedkw.update(typekw[k])
+				plotTimeseries(self.unbinned['time'], self.unbinned[k], **unbinnedkw)
+			binnedkw.update(typekw[k])
+			plotTimeseries(self.binned['time'], self.binned[k], **binnedkw)
 		plt.plot(self.unbinned['time'], self.unbinned['model'], **modelkw)
 
 		# labels describing the simulated timeseries
@@ -311,8 +313,10 @@ class Timeseries(TimeseriesWithoutModel):
 		plt.sca(self.ax['residual'])
 		for k in typekw.keys():
 			if unbinned:
-				plotTimeseries(self.unbinned['time'], (self.unbinned[k] - self.unbinned['model'])/scale, **typekw[k], **unbinnedkw)
-			plotTimeseries(self.binned['time'], (self.binned[k] - self.binned['model'])/scale, **typekw[k], **binnedkw)
+				unbinnedkw.update(typekw[k])
+				plotTimeseries(self.unbinned['time'], (self.unbinned[k] - self.unbinned['model'])/scale, **unbinnedkw)
+			binnedkw.update(typekw[k])
+			plotTimeseries(self.binned['time'], (self.binned[k] - self.binned['model'])/scale, **binnedkw)
 		plt.axhline(0, xmin=np.min(self.unbinned['time']), xmax=np.max(self.unbinned['time']), **modelkw)
 		plt.xlim(*xlim)
 
@@ -336,7 +340,8 @@ class Timeseries(TimeseriesWithoutModel):
 			plt.plot(yhist, xhist, **kwargs)
 			#plt.xlim(3, np.max(yhist)*1.5)
 		for k in typekw.keys():
-			plotHistogram((self.binned[k] - self.binned['model'])/scale, **typekw[k], **histogramkw)
+			histogramkw.update(typekw[k])
+			plotHistogram((self.binned[k] - self.binned['model'])/scale, **histogramkw)
 		# overplot a model histogram on top of that
 		y = np.linspace(*plt.ylim(), num=200)
 		plt.plot(np.exp(-0.5*y**2)/np.sqrt(2*np.pi), y, **modelkw)
@@ -350,11 +355,12 @@ class Timeseries(TimeseriesWithoutModel):
 						horizontalalignment='center', alpha=0.7)
 
 		for i, k in enumerate(keys):
-			plt.text(0.5, 1.3 + i*0.4, k, fontsize=9, **kw[i], **textkw)
+			textkw.update(kw[i])
+			plt.text(0.5, 1.3 + i*0.4, k, fontsize=9, **textkw)
 			ratio = '{:.2f}'.format(self.rms[k]/self.rms['expected'])
-			plt.text(0.5, 1.3 + i*0.4 - 0.12, ratio, fontsize=11, **kw[i], **textkw)
+			plt.text(0.5, 1.3 + i*0.4 - 0.12, ratio, fontsize=11, **textkw)
 			actual = '({:.0f} ppm)'.format( 1e6*self.rms[k])
-			plt.text(0.5, 1.3 + i*0.4 - 0.2, actual, fontsize=8, **kw[i], **textkw)
+			plt.text(0.5, 1.3 + i*0.4 - 0.2, actual, fontsize=8, **textkw)
 
 	'''
 	self.ax['histbinned'].text(np.exp(span*0.2 + left), y, "{:.2f}".format(self.timeseries.scale*self.unmititigated/self.timeseries.exposurenoise), fontsize=6, color=self.plotting['naive'], horizontalalignment='center', alpha=0.7)

@@ -10,11 +10,13 @@ This pixel-level truncated mean has the potential to distort astrophysical signa
 
 To install, this simplest way is probably simply to install it directly via `pip` from any UNIX prompt:
 ```
-pip install git+https://github.com/zkbt/tess-zap
+pip install tess-zap
 ```
 
-If you want to be able to modify the code yourself, please also feel free to fork/clone this repository onto your own computer. You can then change into the `tess-zap/` directory and run
+If you want to be able to modify the code yourself, please also feel free to fork/clone this repository onto your own computer and install directly from that editable package with
 ```
+git clone https://github.com/zkbt/tess-zap.git
+cd tess-zap/
 pip install -e .
 ```
 which will link the intalled version of the `tess-zap` package to your local repository. Changes you make to the code in the repository should be reflected in the version of `tesszap` that Python sees.
