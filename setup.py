@@ -49,7 +49,7 @@ setup(name = "tesszap",
       'Programming Language :: Python',
       'Topic :: Scientific/Engineering :: Astronomy'
       ],
-    install_requires=['numpy', 'matplotlib'],
+    install_requires=['numpy', 'matplotlib', 'scipy', 'astropy', 'tqdm'],
     zip_safe=False,
     license='MIT',
 )
